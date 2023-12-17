@@ -1,0 +1,11 @@
+../Core/Src/consoleCommands.c:43:25:ConsoleCommandComment	16	static
+../Core/Src/consoleCommands.c:50:25:ConsoleCommandHelp	32	static
+../Core/Src/consoleCommands.c:71:25:ConsoleCommandParamExampleInt16	24	static
+../Core/Src/consoleCommands.c:87:25:ConsoleCommandParamExampleHexUint16	24	static
+../Core/Src/consoleCommands.c:106:25:ConsoleCommandVer	24	static
+../Core/Src/consoleCommands.c:115:25:ConsoleCommandReadAccelX	24	static
+../Core/Src/consoleCommands.c:124:25:ConsoleCommandReadAccelY	24	static
+../Core/Src/consoleCommands.c:133:25:ConsoleCommandReadAccelZ	24	static
+../Core/Src/consoleCommands.c:142:25:ConsoleCommandLedsRose	24	static
+../Core/Src/consoleCommands.c:155:25:ConsoleCommandButtonState	24	static
+../Core/Src/consoleCommands.c:170:31:ConsoleCommandsGetTable	4	static

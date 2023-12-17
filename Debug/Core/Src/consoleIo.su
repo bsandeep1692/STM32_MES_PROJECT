@@ -1,0 +1,5 @@
+../Core/Src/consoleIo.c:26:15:ConsoleIoInit	8	static
+../Core/Src/consoleIo.c:33:6:HAL_UART_RxCpltCallback	16	static
+../Core/Src/consoleIo.c:46:6:HAL_UART_TxCpltCallback	16	static
+../Core/Src/consoleIo.c:52:15:ConsoleIoReceive	24	static
+../Core/Src/consoleIo.c:69:15:ConsoleIoSendString	24	static

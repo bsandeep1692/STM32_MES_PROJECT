@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "console.h"  //for the cmd line interface
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -110,9 +110,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  ConsoleInit();
   while (1)
   {
-	  //ConsoleProcess();
+	  ConsoleProcess();
 	  if(BlinkSpeed == 0)
 	  {
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 1);
