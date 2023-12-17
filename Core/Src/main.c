@@ -48,7 +48,11 @@ UART_HandleTypeDef huart3;
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
-
+uint8_t BlinkSpeed = 0;
+uint8_t msg[20];
+uint8_t debounceRequest =0;
+uint8_t debounceCount = 0;
+uint8_t rx_buffer[10];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -98,18 +102,39 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   MX_TIM13_Init();
   /* USER CODE BEGIN 2 */
+  // Start timer
+  HAL_TIM_Base_Start_IT(&htim13);
 
+  HAL_UART_Transmit_IT(&huart3, "Main function\n\r" , strlen("Main function\n\r"));
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);//red
-	  //HAL_Delay(100);
-    /* USER CODE END WHILE */
+	  //ConsoleProcess();
+	  if(BlinkSpeed == 0)
+	  {
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 1);
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 0);
 
-    /* USER CODE BEGIN 3 */
+	  }
+	  else if(BlinkSpeed == 1)
+	  {
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 0);
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 1);
+
+	  }
+	  else if(BlinkSpeed == 2)
+	  {
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 0);
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 0);
+	  }
+	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
+	  HAL_Delay(50);
+	  /* USER CODE END WHILE */
+
+	  /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -328,7 +353,47 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
 
+	if (htim == &htim13 )
+	{
+		if (!debounceRequest)
+		{
+			if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 1)
+			{
+				HAL_UART_Transmit_IT(&huart3, "Button Pressed\n\r" , strlen("Button Pressed\n\r"));
+				if(BlinkSpeed == 2)
+				{
+					BlinkSpeed = 0;
+				}
+				else
+				{
+					BlinkSpeed ++;
+
+				}
+				debounceRequest = 1;
+			}
+		}
+		// Handle debounce
+		else
+		{
+			if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 1)
+				debounceCount = 0;
+			else
+			{
+				debounceCount ++;
+				if (debounceCount == 10)
+				{
+					debounceCount = 0;
+					debounceRequest = 0;
+				}
+			}
+		}
+	}
+
+
+}
 /* USER CODE END 4 */
 
 /**
