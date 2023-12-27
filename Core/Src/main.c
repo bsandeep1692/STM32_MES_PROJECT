@@ -41,6 +41,9 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+DAC_HandleTypeDef hdac;
+
+TIM_HandleTypeDef htim11;
 TIM_HandleTypeDef htim13;
 
 UART_HandleTypeDef huart3;
@@ -53,6 +56,8 @@ uint8_t msg[20];
 uint8_t debounceRequest =0;
 uint8_t debounceCount = 0;
 uint8_t rx_buffer[10];
+uint16_t Value_DAC =0;
+uint32_t Value_ARR =1999;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,6 +66,8 @@ static void MX_GPIO_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_TIM13_Init(void);
+static void MX_DAC_Init(void);
+static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -101,9 +108,13 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_TIM13_Init();
+  MX_DAC_Init();
+  MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
   // Start timer
-  HAL_TIM_Base_Start_IT(&htim13);
+  //HAL_TIM_Base_Start_IT(&htim13);
+  HAL_TIM_Base_Start_IT(&htim11);
+  HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
 
   HAL_UART_Transmit_IT(&huart3, "Main function\n\r" , strlen("Main function\n\r"));
   /* USER CODE END 2 */
@@ -113,7 +124,7 @@ int main(void)
   ConsoleInit();
   while (1)
   {
-	  ConsoleProcess();
+	  /*ConsoleProcess();
 	  if(BlinkSpeed == 0)
 	  {
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 1);
@@ -131,11 +142,14 @@ int main(void)
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 0);
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 0);
 	  }
-	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
-	  HAL_Delay(50);
-	  /* USER CODE END WHILE */
+	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red*/
+	  //HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
 
-	  /* USER CODE BEGIN 3 */
+	  HAL_Delay(1);
+	  //HAL_UART_Transmit_IT(&huart3, "Main function\n\r" , strlen("Main function\n\r"));
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -194,6 +208,77 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief DAC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_DAC_Init(void)
+{
+
+  /* USER CODE BEGIN DAC_Init 0 */
+
+  /* USER CODE END DAC_Init 0 */
+
+  DAC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN DAC_Init 1 */
+
+  /* USER CODE END DAC_Init 1 */
+
+  /** DAC Initialization
+  */
+  hdac.Instance = DAC;
+  if (HAL_DAC_Init(&hdac) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** DAC channel OUT1 config
+  */
+  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+  if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN DAC_Init 2 */
+
+  /* USER CODE END DAC_Init 2 */
+
+}
+
+/**
+  * @brief TIM11 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM11_Init(void)
+{
+
+  /* USER CODE BEGIN TIM11_Init 0 */
+
+  /* USER CODE END TIM11_Init 0 */
+
+  /* USER CODE BEGIN TIM11_Init 1 */
+
+  /* USER CODE END TIM11_Init 1 */
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 108-1;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 2000-1;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM11_Init 2 */
+
+  /* USER CODE END TIM11_Init 2 */
+
 }
 
 /**
@@ -312,10 +397,10 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
@@ -354,6 +439,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/* Timer13 interupt that fires every 5 ms to check push button press and handle debouncing*/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 
@@ -390,6 +476,28 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					debounceRequest = 0;
 				}
 			}
+		}
+	}
+	if (htim == &htim11 )
+	{
+
+		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
+		if (Value_DAC<4095)
+		{
+			Value_DAC++;
+		}
+		else{
+			Value_DAC = 0;
+			Value_ARR = Value_ARR+1000;
+			if (Value_ARR>8000)
+			{
+				Value_ARR = 1999;
+			}
+			TIM11->ARR = Value_ARR;
+			HAL_UART_Transmit_IT(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"));
+
+			//ConsoleSendParamInt16((int16_t)Value_DAC);
+			//ConsoleIoSendString(STR_ENDLINE);
 		}
 	}
 
