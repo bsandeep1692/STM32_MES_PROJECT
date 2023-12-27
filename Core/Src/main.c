@@ -124,7 +124,7 @@ int main(void)
   ConsoleInit();
   while (1)
   {
-	  /*ConsoleProcess();
+	  ConsoleProcess();
 	  if(BlinkSpeed == 0)
 	  {
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 1);
@@ -142,11 +142,9 @@ int main(void)
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 0);
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 0);
 	  }
-	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red*/
+	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
+	  HAL_Delay(50);
 	  //HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
-
-	  HAL_Delay(1);
-	  //HAL_UART_Transmit_IT(&huart3, "Main function\n\r" , strlen("Main function\n\r"));
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -440,6 +438,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 /* Timer13 interupt that fires every 5 ms to check push button press and handle debouncing*/
+/* Timer11 interupt that fires every 1 ms */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 
@@ -481,7 +480,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	if (htim == &htim11 )
 	{
 
-		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
+		/*//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
 		if (Value_DAC<4095)
 		{
 			Value_DAC++;
@@ -498,7 +497,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 			//ConsoleSendParamInt16((int16_t)Value_DAC);
 			//ConsoleIoSendString(STR_ENDLINE);
-		}
+		}*/
 	}
 
 
