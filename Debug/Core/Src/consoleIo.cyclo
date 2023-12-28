@@ -2,4 +2,4 @@
 ../Core/Src/consoleIo.c:33:6:HAL_UART_RxCpltCallback	3
 ../Core/Src/consoleIo.c:46:6:HAL_UART_TxCpltCallback	1
 ../Core/Src/consoleIo.c:52:15:ConsoleIoReceive	2
-../Core/Src/consoleIo.c:69:15:ConsoleIoSendString	2
+../Core/Src/consoleIo.c:69:15:ConsoleIoSendString	1
