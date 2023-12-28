@@ -62,6 +62,9 @@ uint16_t Value_DAC =0;
 uint16_t Value_DAC_SPI =1024;
 uint16_t spi_data;
 uint32_t Value_ARR =1999;
+Waveform_T Wave = 0;
+int16_t Amplitude = 4;
+int16_t Frequency = 1000;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -543,7 +546,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 		else{
 			Value_DAC_SPI = 0;
-			HAL_UART_Transmit(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"),HAL_MAX_DELAY);
+			//HAL_UART_Transmit(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"),HAL_MAX_DELAY);
 		}
 	}
 

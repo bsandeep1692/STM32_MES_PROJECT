@@ -37,6 +37,7 @@ eCommandResult_T ConsoleReceiveParamInt16(const char * buffer, const uint8_t par
 eCommandResult_T ConsoleSendParamInt16(int16_t parameterInt);
 eCommandResult_T ConsoleSendParamInt32(int32_t parameterInt);
 eCommandResult_T ConsoleReceiveParamHexUint16(const char * buffer, const uint8_t parameterNumber, uint16_t* parameterUint16);
+eCommandResult_T ConsoleReceiveString(const char * buffer, const uint8_t parameterNumber, char* parameterString);
 eCommandResult_T ConsoleSendParamHexUint16(uint16_t parameterUint16);
 eCommandResult_T ConsoleSendParamHexUint8(uint8_t parameterUint8);
 eCommandResult_T ConsoleSendString(const char *buffer); // must be null terminated

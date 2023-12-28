@@ -46,7 +46,11 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+typedef enum Waveform {
+	SINE = 0,
+	SQUARE = 1,
+	SAWTOOTH = 2,
+} Waveform_T;
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
