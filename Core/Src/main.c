@@ -118,7 +118,7 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   // Start timer
-  //HAL_TIM_Base_Start_IT(&htim13);
+  HAL_TIM_Base_Start_IT(&htim13);
   HAL_TIM_Base_Start_IT(&htim11);
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
 
@@ -275,7 +275,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
   hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
@@ -283,7 +283,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 7;
   hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
@@ -522,32 +522,34 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				}
 			}
 		}
-	}
-	if (htim == &htim11 )
-	{
-		spi_data = 0x3000|Value_DAC_SPI;
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-		HAL_SPI_Transmit(&hspi1, (uint8_t*)&spi_data, 2, 1000);
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
 
-		/*//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
-		if (Value_DAC<4095)
+
+		spi_data = 0x3000|Value_DAC_SPI;
+		//spi_data = 0x3000|0;
+		HAL_StatusTypeDef errorcode;
+		//spi_data[0]= 0x0F;
+		//spi_data[1]= 0x30;
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+		errorcode = HAL_SPI_Transmit(&hspi1, (uint8_t*)&spi_data, 2, 100000);
+		if (errorcode!= HAL_OK)
 		{
-			Value_DAC++;
+			HAL_UART_Transmit_IT(&huart3, "error\n\r" , strlen("error\n\r"));
+		}
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+
+		if (Value_DAC_SPI<4095)
+		{
+			Value_DAC_SPI++;
 		}
 		else{
-			Value_DAC = 0;
-			Value_ARR = Value_ARR+1000;
-			if (Value_ARR>8000)
-			{
-				Value_ARR = 1999;
-			}
-			TIM11->ARR = Value_ARR;
+			Value_DAC_SPI = 0;
 			HAL_UART_Transmit_IT(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"));
+		}
+	}
 
-			//ConsoleSendParamInt16((int16_t)Value_DAC);
-			//ConsoleIoSendString(STR_ENDLINE);
-		}*/
+	if (htim == &htim11 )
+	{
+
 	}
 
 
