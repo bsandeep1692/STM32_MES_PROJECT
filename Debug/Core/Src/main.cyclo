@@ -8,4 +8,4 @@
 ../Core/Src/main.c:399:13:MX_USB_OTG_FS_PCD_Init	2
 ../Core/Src/main.c:435:13:MX_GPIO_Init	1
 ../Core/Src/main.c:488:6:HAL_TIM_PeriodElapsedCallback	9
-../Core/Src/main.c:563:6:Error_Handler	1
+../Core/Src/main.c:564:6:Error_Handler	1

@@ -122,7 +122,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim11);
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
 
-  HAL_UART_Transmit_IT(&huart3, "Main function\n\r" , strlen("Main function\n\r"));
+  HAL_UART_Transmit(&huart3, "Main function\n\r" , strlen("Main function\n\r"),1000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -488,13 +488,13 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 
-	if (htim == &htim13 )
+	if (htim == &htim13 )/* Timer13 interupt that fires every 5 ms*/
 	{
 		if (!debounceRequest)
 		{
 			if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 1)
 			{
-				HAL_UART_Transmit_IT(&huart3, "Button Pressed\n\r" , strlen("Button Pressed\n\r"));
+				HAL_UART_Transmit(&huart3, "Button Pressed\n\r" , strlen("Button Pressed\n\r"),1000);
 				if(BlinkSpeed == 2)
 				{
 					BlinkSpeed = 0;
@@ -533,7 +533,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		errorcode = HAL_SPI_Transmit(&hspi1, (uint8_t*)&spi_data, 2, 100000);
 		if (errorcode!= HAL_OK)
 		{
-			HAL_UART_Transmit_IT(&huart3, "error\n\r" , strlen("error\n\r"));
+			HAL_UART_Transmit(&huart3, "error\n\r" , strlen("error\n\r"),1000);
 		}
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 
@@ -543,11 +543,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 		else{
 			Value_DAC_SPI = 0;
-			HAL_UART_Transmit_IT(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"));
+			HAL_UART_Transmit(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"),HAL_MAX_DELAY);
 		}
 	}
 
-	if (htim == &htim11 )
+
+	if (htim == &htim11 ) /* Timer11 interupt that fires every 1 ms */
 	{
 
 	}
