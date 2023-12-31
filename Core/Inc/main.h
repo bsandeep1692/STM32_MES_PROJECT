@@ -51,6 +51,12 @@ typedef enum Waveform {
 	SQUARE = 1,
 	SAWTOOTH = 2,
 } Waveform_T;
+
+typedef enum States {
+	STATE_INIT = 0,
+	STATE_MODE_CHANGE = 1,
+	STATE_SINE_WAVE = 2,
+} Sates_T;
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

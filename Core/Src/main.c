@@ -63,6 +63,7 @@ uint16_t Value_DAC_SPI =1024;
 uint16_t spi_data;
 uint32_t Value_ARR =1999;
 Waveform_T Wave = 0;
+Sates_T Current_state=0;
 int16_t Amplitude = 4;
 int16_t Frequency = 1000;
 /* USER CODE END PV */
@@ -134,6 +135,48 @@ int main(void)
   while (1)
   {
 	  ConsoleProcess();
+
+      // Input state variables - Mode,frequency,amplitude
+	  //Output state variable - delta phase, LUT, and amplitude(inturn update LUT)
+	  switch(Current_state){
+	  case STATE_INIT:
+		  if (event == change_mode)
+		  {
+			  CHANGE_MODE();
+		  }
+		  else if (event == change_frequency)
+		  {
+
+		  }
+		  else if (event == change_amplitude)
+		  {
+
+		  }
+		  break;
+
+
+	  case STATE_SINE_WAVE:
+		  if (event == change_mode)
+		  {
+
+		  }
+		  else if (event == change_frequency)
+		  {
+
+		  }
+		  else if (event == change_amplitude)
+		  {
+
+		  }
+		  break;
+
+
+
+	  }
+
+
+
+
 	  if(BlinkSpeed == 0)
 	  {
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 1);
@@ -153,7 +196,6 @@ int main(void)
 	  }
 	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
 	  HAL_Delay(50);
-	  //HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -280,7 +322,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -346,7 +388,7 @@ static void MX_TIM13_Init(void)
   htim13.Instance = TIM13;
   htim13.Init.Prescaler = 108-1;
   htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim13.Init.Period = 10000-1;
+  htim13.Init.Period = 5000-1;
   htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
