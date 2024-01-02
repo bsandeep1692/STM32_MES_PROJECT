@@ -57,6 +57,12 @@ typedef enum States {
 	STATE_MODE_CHANGE = 1,
 	STATE_SINE_WAVE = 2,
 } Sates_T;
+
+typedef enum Events {
+	CHANGE_MODE = 0,
+	CHANGE_FREQUENCY = 1,
+	CHANGE_AMPLITUDE = 2,
+} Events_T;
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

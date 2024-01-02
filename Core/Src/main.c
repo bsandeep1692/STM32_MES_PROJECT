@@ -66,6 +66,14 @@ Waveform_T Wave = 0;
 Sates_T Current_state=0;
 int16_t Amplitude = 4;
 int16_t Frequency = 1000;
+Events_T event= 0;
+
+uint16_t lut1[256]={2048,2098,2149,2199,2249,2300,2350,2399,2449,2498,2547,2596,2644,2693,2740,2787,2834,2881,2926,2972,3016,3061,3104,3147,3189,3231,3272,3312,3351,3389,3427,3464,3500,3535,3569,
+		3603,3635,3666,3697,3726,3754,3782,3808,3833,3857,3880,3902,3923,3943,3961,3979,3995,4010,4024,4036,4048,4058,4067,4074,4081,4086,4090,4093,4095,4095,4094,4092,4088,4084,4078,4071,4062,4053,
+		4042,4030,4017,4002,3987,3970,3952,3933,3913,3892,3869,3845,3821,3795,3768,3740,3711,3682,3651,3619,3586,3552,3518,3482,3446,3408,3370,3331,3292,3251,3210,3168,3126,3082,3039,2994,2949,2904,
+		2857,2811,2764,2716,2669,2620,2572,2523,2474,2424,2374,2325,2275,2224,2174,2124,2073,2023,1972,1922,1872,1821,1771,1722,1672,1622,1573,1524,1476,1427,1380,1332,1285,1239,1192,1147,1102,1057,
+		1014,970,928,886,845,804,765,726,688,650,614,578,544,510,477,445,414,385,356,328,301,275,251,227,204,183,163,144,126,109,94,79,66,54,43,34,25,18,12,8,4,2,1,1,3,6,10,15,22,29,38,48,60,72,86,
+		101,117,135,153,173,194,216,239,263,288,314,342,370,399,430,461,493,527,561,596,632,669,707,745,784,824,865,907,949,992,1035,1080,1124,1170,1215,1262,1309,1356,1403,1452,1500,1549,1598,1647,1697,1746,1796,1847,1897,1947,1998,2048,};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -140,15 +148,15 @@ int main(void)
 	  //Output state variable - delta phase, LUT, and amplitude(inturn update LUT)
 	  switch(Current_state){
 	  case STATE_INIT:
-		  if (event == change_mode)
+		  if (event == CHANGE_MODE)
 		  {
-			  CHANGE_MODE();
+			  //CHANGE_MODE();
 		  }
-		  else if (event == change_frequency)
+		  else if (event == CHANGE_FREQUENCY)
 		  {
 
 		  }
-		  else if (event == change_amplitude)
+		  else if (event == CHANGE_AMPLITUDE)
 		  {
 
 		  }
@@ -156,25 +164,20 @@ int main(void)
 
 
 	  case STATE_SINE_WAVE:
-		  if (event == change_mode)
+		  if (event == CHANGE_MODE)
 		  {
 
 		  }
-		  else if (event == change_frequency)
+		  else if (event == CHANGE_FREQUENCY)
 		  {
 
 		  }
-		  else if (event == change_amplitude)
+		  else if (event == CHANGE_AMPLITUDE)
 		  {
 
 		  }
 		  break;
-
-
-
 	  }
-
-
 
 
 	  if(BlinkSpeed == 0)
@@ -570,12 +573,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 
 		spi_data = 0x3000|Value_DAC_SPI;
-		//spi_data = 0x3000|0;
+		//spi_data = 0x3333;
 		HAL_StatusTypeDef errorcode;
 		//spi_data[0]= 0x0F;
 		//spi_data[1]= 0x30;
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-		errorcode = HAL_SPI_Transmit(&hspi1, (uint8_t*)&spi_data, 2, 100000);
+		errorcode = HAL_SPI_Transmit(&hspi1, (uint8_t*)&spi_data, 1, 100000);
 		if (errorcode!= HAL_OK)
 		{
 			HAL_UART_Transmit(&huart3, "error\n\r" , strlen("error\n\r"),1000);
