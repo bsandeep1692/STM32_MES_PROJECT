@@ -45,6 +45,7 @@ DAC_HandleTypeDef hdac;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim9;
 TIM_HandleTypeDef htim11;
 TIM_HandleTypeDef htim13;
 
@@ -85,6 +86,7 @@ static void MX_TIM13_Init(void);
 static void MX_DAC_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM9_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -128,10 +130,12 @@ int main(void)
   MX_DAC_Init();
   MX_TIM11_Init();
   MX_SPI1_Init();
+  MX_TIM9_Init();
   /* USER CODE BEGIN 2 */
   // Start timer
   HAL_TIM_Base_Start_IT(&htim13);
   HAL_TIM_Base_Start_IT(&htim11);
+  HAL_TIM_Base_Start_IT(&htim9);
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
 
   HAL_UART_Transmit(&huart3, "Main function\n\r" , strlen("Main function\n\r"),1000);
@@ -197,7 +201,7 @@ int main(void)
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 0);
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 0);
 	  }
-	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
+	  //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
 	  HAL_Delay(50);
     /* USER CODE END WHILE */
 
@@ -325,7 +329,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -339,6 +343,44 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM9 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM9_Init(void)
+{
+
+  /* USER CODE BEGIN TIM9_Init 0 */
+
+  /* USER CODE END TIM9_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+
+  /* USER CODE BEGIN TIM9_Init 1 */
+
+  /* USER CODE END TIM9_Init 1 */
+  htim9.Instance = TIM9;
+  htim9.Init.Prescaler = 1-1;
+  htim9.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim9.Init.Period = 1080-1;
+  htim9.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim9.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim9) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim9, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM9_Init 2 */
+
+  /* USER CODE END TIM9_Init 2 */
 
 }
 
@@ -531,8 +573,8 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* Timer13 interupt that fires every 5 ms to check push button press and handle debouncing*/
-/* Timer11 interupt that fires every 1 ms */
+/* Timer13(APB1 -108Mhz) interupt that fires every 5 ms to check push button press and handle debouncing*/
+/* Timer11(APB2 - 216Mhz) interupt that fires every 1 ms */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 
@@ -599,6 +641,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	if (htim == &htim11 ) /* Timer11 interupt that fires every 1 ms */
 	{
 
+	}
+
+	if (htim == &htim9 ) /* Timer9 interupt that fires every 5 us(200KHz) */
+	{
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
 	}
 
 
