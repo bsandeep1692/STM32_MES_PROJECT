@@ -60,7 +60,7 @@ uint8_t debounceRequest =0;
 uint8_t debounceCount = 0;
 uint8_t rx_buffer[10];
 uint16_t Value_DAC =0;
-uint16_t Value_DAC_SPI =1024;
+uint16_t Value_DAC_SPI =0;
 uint16_t spi_data;
 uint32_t Value_ARR =1999;
 Waveform_T Wave = 0;
@@ -88,7 +88,8 @@ static void MX_TIM11_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM9_Init(void);
 /* USER CODE BEGIN PFP */
-
+void SPI_Transmit (uint16_t *data, int size);
+void SPI_Enable (void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -133,6 +134,7 @@ int main(void)
   MX_TIM9_Init();
   /* USER CODE BEGIN 2 */
   // Start timer
+  SPI_Enable();
   HAL_TIM_Base_Start_IT(&htim13);
   HAL_TIM_Base_Start_IT(&htim11);
   HAL_TIM_Base_Start_IT(&htim9);
@@ -144,6 +146,8 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   ConsoleInit();
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+
   while (1)
   {
 	  ConsoleProcess();
@@ -366,7 +370,7 @@ static void MX_TIM9_Init(void)
   htim9.Instance = TIM9;
   htim9.Init.Prescaler = 1-1;
   htim9.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim9.Init.Period = 10800-1;
+  htim9.Init.Period = 2160-1;
   htim9.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim9.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim9) != HAL_OK)
@@ -623,27 +627,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	}
 
-	if (htim == &htim9 ) /* Timer9 interupt that fires every 50 us(20KHz) */
+	if (htim == &htim9 ) /* Timer9 interupt that fires every 10 us(1000KHz) */
 	{
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
-		//spi_data = 0x3000|Value_DAC_SPI;
-		spi_data = 0x3000|lut1[Value_DAC_SPI];
-
-		//spi_data = 0x3333;
-		HAL_StatusTypeDef errorcode;
-		//spi_data[0]= 0x0F;
-		//spi_data[1]= 0x30;
+		//SPI_Enable();
+		spi_data = 0x3000|Value_DAC_SPI;
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-		errorcode = HAL_SPI_Transmit(&hspi1, (uint8_t*)&spi_data, 1, 100000);
-		if (errorcode!= HAL_OK)
-		{
-			HAL_UART_Transmit(&huart3, "error\n\r" , strlen("error\n\r"),1000);
-		}
+		SPI_Transmit((uint16_t*)&spi_data, 1);
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 
-		if (Value_DAC_SPI<255)
+		if (Value_DAC_SPI<4095)
 		{
-			Value_DAC_SPI = Value_DAC_SPI + 6;
+			Value_DAC_SPI = Value_DAC_SPI + 1;
 		}
 		else{
 			Value_DAC_SPI = 0;
@@ -652,6 +647,44 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	}
 
 
+}
+
+void SPI_Transmit (uint16_t *data, int size)
+{
+
+	/************** STEPS TO FOLLOW *****************
+	1. Wait for the TXE bit to set in the Status Register
+	2. Write the data to the Data Register
+	3. After the data has been transmitted, wait for the BSY bit to reset in Status Register
+	4. Clear the Overrun flag by reading DR and SR
+	************************************************/
+
+	int i=0;
+	while (i<size)
+	{
+	   while (!((SPI1->SR)&(1<<1))) {};  // wait for TXE bit to set -> This will indicate that the buffer is empty
+	   SPI1->DR = data[i];  // load the data into the Data Register
+	   i++;
+	}
+
+
+/*During discontinuous communications, there is a 2 APB clock period delay between the
+write operation to the SPI_DR register and BSY bit setting. As a consequence it is
+mandatory to wait first until TXE is set and then until BSY is cleared after writing the last
+data.
+*/
+	while (!((SPI1->SR)&(1<<1))) {};  // wait for TXE bit to set -> This will indicate that the buffer is empty
+	while (((SPI1->SR)&(1<<7))) {};  // wait for BSY bit to Reset -> This will indicate that SPI is not busy in communication
+
+	//  Clear the Overrun flag by reading DR and SR
+	uint8_t temp = SPI1->DR;
+					temp = SPI1->SR;
+
+}
+
+void SPI_Enable (void)
+{
+	SPI1->CR1 |= (1<<6);   // SPE=1, Peripheral enabled
 }
 /* USER CODE END 4 */
 
