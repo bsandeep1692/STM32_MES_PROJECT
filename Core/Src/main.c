@@ -366,7 +366,7 @@ static void MX_TIM9_Init(void)
   htim9.Instance = TIM9;
   htim9.Init.Prescaler = 1-1;
   htim9.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim9.Init.Period = 1080-1;
+  htim9.Init.Period = 10800-1;
   htim9.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim9.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim9) != HAL_OK)
@@ -614,7 +614,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 
 
-		spi_data = 0x3000|Value_DAC_SPI;
+
+	}
+
+
+	if (htim == &htim11 ) /* Timer11 interupt that fires every 1 ms */
+	{
+
+	}
+
+	if (htim == &htim9 ) /* Timer9 interupt that fires every 50 us(20KHz) */
+	{
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
+		//spi_data = 0x3000|Value_DAC_SPI;
+		spi_data = 0x3000|lut1[Value_DAC_SPI];
+
 		//spi_data = 0x3333;
 		HAL_StatusTypeDef errorcode;
 		//spi_data[0]= 0x0F;
@@ -627,25 +641,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 
-		if (Value_DAC_SPI<4095)
+		if (Value_DAC_SPI<255)
 		{
-			Value_DAC_SPI++;
+			Value_DAC_SPI = Value_DAC_SPI + 6;
 		}
 		else{
 			Value_DAC_SPI = 0;
 			//HAL_UART_Transmit(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"),HAL_MAX_DELAY);
 		}
-	}
-
-
-	if (htim == &htim11 ) /* Timer11 interupt that fires every 1 ms */
-	{
-
-	}
-
-	if (htim == &htim9 ) /* Timer9 interupt that fires every 5 us(200KHz) */
-	{
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
 	}
 
 
