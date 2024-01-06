@@ -7,6 +7,7 @@
 //		3. Implement the function, using ConsoleReceiveParam<Type> to get the parameters from the buffer.
 
 #include <string.h>
+#include <math.h>
 #include "consoleCommands.h"
 #include "console.h"
 #include "consoleIo.h"
@@ -15,10 +16,15 @@
 
 #define IGNORE_UNUSED_VARIABLE(x)     if ( &x == &x ) {}
 #define WAVE_MAX_STR_LENGTH 12 //
+#define PI 3.14159
 
 extern Waveform_T Wave;
 extern int16_t Amplitude;
 extern int16_t Frequency;
+extern uint32_t Delta_Phase;
+extern int16_t Amplitude;
+extern uint32_t lut[1024];
+extern Events_T event;
 
 static eCommandResult_T ConsoleCommandComment(const char buffer[]);
 static eCommandResult_T ConsoleCommandVer(const char buffer[]);
@@ -28,11 +34,6 @@ static eCommandResult_T ConsoleCommandSetWave(const char buffer[]);
 static eCommandResult_T ConsoleCommandSetFrequency(const char buffer[]);
 static eCommandResult_T ConsoleCommandSetAmplitude(const char buffer[]);
 static eCommandResult_T ConsoleCommandParamExampleHexUint16(const char buffer[]);
-static eCommandResult_T ConsoleCommandReadAccelX(const char buffer[]);
-static eCommandResult_T ConsoleCommandReadAccelY(const char buffer[]);
-static eCommandResult_T ConsoleCommandReadAccelZ(const char buffer[]);
-static eCommandResult_T ConsoleCommandLedsRose(const char buffer[]);
-static eCommandResult_T ConsoleCommandButtonState(const char buffer[]);
 
 static const sConsoleCommandTable_T mConsoleCommandTable[] =
 {
@@ -44,11 +45,6 @@ static const sConsoleCommandTable_T mConsoleCommandTable[] =
 	{"freq", &ConsoleCommandSetFrequency, HELP("Sets frequency of waveform in Hz")},
 	{"amp", &ConsoleCommandSetAmplitude, HELP("Sets amplitude of waveform in V")},
     {"u16h", &ConsoleCommandParamExampleHexUint16, HELP("How to get a hex u16 from the params list: u16h aB12")},
-	{"acx" , &ConsoleCommandReadAccelX, HELP("Reports the current Acceleration (x-direction) in milli-g")},
-	{"acy" , &ConsoleCommandReadAccelY, HELP("Reports the current Acceleration (y-direction) in milli-g")},
-	{"acz" , &ConsoleCommandReadAccelZ, HELP("Reports the current Acceleration (z-direction) in milli-g")},
-	{"leds" ,&ConsoleCommandLedsRose, HELP("Briefly flashes the 8 LEDs to show they are working")},
-	{"buts",&ConsoleCommandButtonState, HELP("Prints the present state of the Blue user button")},
 	CONSOLE_COMMAND_TABLE_END // must be LAST
 };
 
@@ -114,12 +110,17 @@ static eCommandResult_T ConsoleCommandSetWave(const char buffer[])
 	{
 		Wave = SAWTOOTH;
 	}
+	else if (strcmp(wave_str,"dc")==0)
+	{
+		Wave = DC;
+	}
 	else
 	{
 		result = COMMAND_ERROR;
 	}
 	if ( COMMAND_SUCCESS == result )
 	{
+		event = CHANGE_WAVE;
 		ConsoleIoSendString("wave is ");
 		ConsoleIoSendString(wave_str);
 		ConsoleIoSendString(STR_ENDLINE);
@@ -132,8 +133,10 @@ static eCommandResult_T ConsoleCommandSetFrequency(const char buffer[])
 	int16_t frequencyInt;
 	eCommandResult_T result;
 	result = ConsoleReceiveParamInt16(buffer, 1, &frequencyInt);
+	Frequency = frequencyInt;
 	if ( COMMAND_SUCCESS == result )
 	{
+		event = CHANGE_FREQUENCY;
 		ConsoleIoSendString("Frequency is ");
 		ConsoleSendParamInt16(frequencyInt);
 		ConsoleIoSendString(STR_ENDLINE);
@@ -146,8 +149,11 @@ static eCommandResult_T ConsoleCommandSetAmplitude(const char buffer[])
 	int16_t amplitudeInt;
 	eCommandResult_T result;
 	result = ConsoleReceiveParamInt16(buffer, 1, &amplitudeInt);
+	Amplitude = amplitudeInt;
+
 	if ( COMMAND_SUCCESS == result )
 	{
+		event = CHANGE_AMPLITUDE;
 		ConsoleIoSendString("Amplitude is ");
 		ConsoleSendParamInt16(amplitudeInt);
 		ConsoleIoSendString(STR_ENDLINE);
@@ -178,61 +184,6 @@ static eCommandResult_T ConsoleCommandVer(const char buffer[])
 	eCommandResult_T result = COMMAND_SUCCESS;
     IGNORE_UNUSED_VARIABLE(buffer);
 	ConsoleIoSendString(VERSION_STRING);
-	ConsoleIoSendString(STR_ENDLINE);
-	return result;
-}
-
-static eCommandResult_T ConsoleCommandReadAccelX(const char buffer[])
-{
-	eCommandResult_T result = COMMAND_SUCCESS;
-	IGNORE_UNUSED_VARIABLE(buffer);
-	ConsoleIoSendString("x = 1");
-	ConsoleIoSendString(STR_ENDLINE);
-	return result;
-}
-
-static eCommandResult_T ConsoleCommandReadAccelY(const char buffer[])
-{
-	eCommandResult_T result = COMMAND_SUCCESS;
-	IGNORE_UNUSED_VARIABLE(buffer);
-	ConsoleIoSendString("y = 2");
-	ConsoleIoSendString(STR_ENDLINE);
-	return result;
-}
-
-static eCommandResult_T ConsoleCommandReadAccelZ(const char buffer[])
-{
-	eCommandResult_T result = COMMAND_SUCCESS;
-	IGNORE_UNUSED_VARIABLE(buffer);
-	ConsoleIoSendString("z = 3 ");
-	ConsoleIoSendString(STR_ENDLINE);
-	return result;
-}
-
-static eCommandResult_T ConsoleCommandLedsRose(const char buffer[])
-{
-	eCommandResult_T result = COMMAND_SUCCESS;
-	IGNORE_UNUSED_VARIABLE(buffer);
-	ConsoleIoSendString("LEDs should light in a circular pattern and then extinguish the same way ");
-	//LedRoseSet();
-	HAL_Delay(50);
-	//LedRoseToggle();
-	ConsoleIoSendString(STR_ENDLINE);
-	return result;
-}
-
-
-static eCommandResult_T ConsoleCommandButtonState(const char buffer[])
-{
-	eCommandResult_T result = COMMAND_SUCCESS;
-	IGNORE_UNUSED_VARIABLE(buffer);
-	ConsoleIoSendString("the present state of the Blue user button is: ");
-	if (1) {
-		ConsoleIoSendString("DOWN, Depressed ");
-	}
-	else {
-		ConsoleIoSendString("UP, Unpressed ");
-	}
 	ConsoleIoSendString(STR_ENDLINE);
 	return result;
 }

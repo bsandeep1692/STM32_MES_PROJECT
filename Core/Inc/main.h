@@ -50,18 +50,22 @@ typedef enum Waveform {
 	SINE = 0,
 	SQUARE = 1,
 	SAWTOOTH = 2,
+	DC = 3
 } Waveform_T;
 
 typedef enum States {
 	STATE_INIT = 0,
-	STATE_MODE_CHANGE = 1,
-	STATE_SINE_WAVE = 2,
+	STATE_SINE_WAVE = 1,
+	STATE_SAWTOOTH_WAVE = 2,
+	STATE_SQUARE_WAVE = 3,
+	STATE_DC = 4
 } Sates_T;
 
 typedef enum Events {
-	CHANGE_MODE = 0,
-	CHANGE_FREQUENCY = 1,
-	CHANGE_AMPLITUDE = 2,
+	NO_EVENT = 0,
+	CHANGE_WAVE = 1,
+	CHANGE_FREQUENCY = 2,
+	CHANGE_AMPLITUDE = 3,
 } Events_T;
 /* USER CODE END EM */
 

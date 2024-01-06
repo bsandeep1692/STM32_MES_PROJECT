@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "console.h"  //for the cmd line interface
+#include <math.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,7 +38,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define PI 3.14159
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -61,13 +63,18 @@ uint8_t debounceCount = 0;
 uint8_t rx_buffer[10];
 uint16_t Value_DAC =0;
 uint16_t Value_DAC_SPI =0;
+uint32_t phase = 0;
 uint16_t spi_data;
+uint32_t lut[1024];
 uint32_t Value_ARR =1999;
 Waveform_T Wave = 0;
 Sates_T Current_state=0;
-int16_t Amplitude = 4;
+uint8_t Input_Updated = 0;
 int16_t Frequency = 1000;
+int16_t Amplitude = 4;
 Events_T event= 0;
+uint32_t Delta_Phase =1;
+uint32_t fs= 100000; //Sampling frequency
 
 uint16_t lut1[256]={2048,2098,2149,2199,2249,2300,2350,2399,2449,2498,2547,2596,2644,2693,2740,2787,2834,2881,2926,2972,3016,3061,3104,3147,3189,3231,3272,3312,3351,3389,3427,3464,3500,3535,3569,
 		3603,3635,3666,3697,3726,3754,3782,3808,3833,3857,3880,3902,3923,3943,3961,3979,3995,4010,4024,4036,4048,4058,4067,4074,4081,4086,4090,4093,4095,4095,4094,4092,4088,4084,4078,4071,4062,4053,
@@ -75,6 +82,7 @@ uint16_t lut1[256]={2048,2098,2149,2199,2249,2300,2350,2399,2449,2498,2547,2596,
 		2857,2811,2764,2716,2669,2620,2572,2523,2474,2424,2374,2325,2275,2224,2174,2124,2073,2023,1972,1922,1872,1821,1771,1722,1672,1622,1573,1524,1476,1427,1380,1332,1285,1239,1192,1147,1102,1057,
 		1014,970,928,886,845,804,765,726,688,650,614,578,544,510,477,445,414,385,356,328,301,275,251,227,204,183,163,144,126,109,94,79,66,54,43,34,25,18,12,8,4,2,1,1,3,6,10,15,22,29,38,48,60,72,86,
 		101,117,135,153,173,194,216,239,263,288,314,342,370,399,430,461,493,527,561,596,632,669,707,745,784,824,865,907,949,992,1035,1080,1124,1170,1215,1262,1309,1356,1403,1452,1500,1549,1598,1647,1697,1746,1796,1847,1897,1947,1998,2048,};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -90,6 +98,7 @@ static void MX_TIM9_Init(void);
 /* USER CODE BEGIN PFP */
 void SPI_Transmit (uint16_t *data, int size);
 void SPI_Enable (void);
+void Change_Wave(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -133,8 +142,16 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM9_Init();
   /* USER CODE BEGIN 2 */
+
+  Delta_Phase = pow(2, 32) * ((uint32_t)1000) / 100000;
+  for (uint16_t jk=0; jk< 1024; jk++)
+  {
+     lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+  }
+
   // Start timer
   SPI_Enable();
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
   HAL_TIM_Base_Start_IT(&htim13);
   HAL_TIM_Base_Start_IT(&htim11);
   HAL_TIM_Base_Start_IT(&htim9);
@@ -154,39 +171,102 @@ int main(void)
 
       // Input state variables - Mode,frequency,amplitude
 	  //Output state variable - delta phase, LUT, and amplitude(inturn update LUT)
-	  switch(Current_state){
-	  case STATE_INIT:
-		  if (event == CHANGE_MODE)
-		  {
-			  //CHANGE_MODE();
+	  if (event != NO_EVENT)
+	  {
+		  switch(Current_state){
+		  case STATE_INIT:
+			  if (event == CHANGE_WAVE)
+			  {
+				  Change_Wave();
+			  }
+			  else if (event == CHANGE_FREQUENCY)
+			  {
+
+				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+			  }
+			  else if (event == CHANGE_AMPLITUDE)
+			  {
+				  for (uint16_t jk=0; jk< 1024; jk++)
+				  {
+					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+				  }
+			  }
+			  break;
+
+
+		  case STATE_SINE_WAVE:
+			  if (event == CHANGE_WAVE)
+			  {
+				  Change_Wave();
+			  }
+			  else if (event == CHANGE_FREQUENCY)
+			  {
+				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+			  }
+			  else if (event == CHANGE_AMPLITUDE)
+			  {
+				  for (uint16_t jk=0; jk< 1024; jk++)
+				  {
+					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+				  }
+			  }
+			  break;
+
+		  case STATE_SAWTOOTH_WAVE:
+			  if (event == CHANGE_WAVE)
+			  {
+				  Change_Wave();
+			  }
+			  else if (event == CHANGE_FREQUENCY)
+			  {
+				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+			  }
+			  else if (event == CHANGE_AMPLITUDE)
+			  {
+				  for (uint16_t jk=0; jk< 1024; jk++)
+				  {
+					  lut[jk]= (jk* 4)*(Amplitude/5.25);
+				  }
+			  }
+			  break;
+		  case STATE_SQUARE_WAVE:
+			  if (event == CHANGE_WAVE)
+			  {
+				  Change_Wave();
+			  }
+			  else if (event == CHANGE_FREQUENCY)
+			  {
+				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+			  }
+			  else if (event == CHANGE_AMPLITUDE)
+			  {
+				  for (uint16_t jk=0; jk< 512; jk++)
+				  {
+					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*1);
+				  }
+
+				  for (uint16_t jk=512; jk< 1024; jk++)
+				  {
+					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*(-1));
+				  }
+			  }
+			  break;
+		  case STATE_DC:
+			  if (event == CHANGE_WAVE)
+			  {
+				  Change_Wave();
+			  }
+			  else if (event == CHANGE_AMPLITUDE)
+			  {
+				  for (uint16_t jk=0; jk< 1024; jk++)
+				  {
+					  lut[jk]= -(2048*(((float)Amplitude-5.0)/5.0));
+				  }
+			  }
+			  break;
 		  }
-		  else if (event == CHANGE_FREQUENCY)
-		  {
-
-		  }
-		  else if (event == CHANGE_AMPLITUDE)
-		  {
-
-		  }
-		  break;
-
-
-	  case STATE_SINE_WAVE:
-		  if (event == CHANGE_MODE)
-		  {
-
-		  }
-		  else if (event == CHANGE_FREQUENCY)
-		  {
-
-		  }
-		  else if (event == CHANGE_AMPLITUDE)
-		  {
-
-		  }
-		  break;
+		  event = NO_EVENT;
 	  }
-
 
 	  if(BlinkSpeed == 0)
 	  {
@@ -629,21 +709,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	if (htim == &htim9 ) /* Timer9 interupt that fires every 10 us(1000KHz) */
 	{
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
 		//SPI_Enable();
-		spi_data = 0x3000|Value_DAC_SPI;
+		//spi_data = 0x3000|Value_DAC_SPI;
+		phase = phase + Delta_Phase;
+		Value_DAC_SPI = phase>>22;
+		spi_data = 0x3000|lut[Value_DAC_SPI];
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
 		SPI_Transmit((uint16_t*)&spi_data, 1);
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+		//HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 
-		if (Value_DAC_SPI<4095)
+		/*if (Value_DAC_SPI<255)
 		{
-			Value_DAC_SPI = Value_DAC_SPI + 1;
+			Value_DAC_SPI = Value_DAC_SPI + 5;
 		}
 		else{
 			Value_DAC_SPI = 0;
 			//HAL_UART_Transmit(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"),HAL_MAX_DELAY);
-		}
+		}*/
 	}
 
 
@@ -673,8 +757,8 @@ write operation to the SPI_DR register and BSY bit setting. As a consequence it 
 mandatory to wait first until TXE is set and then until BSY is cleared after writing the last
 data.
 */
-	while (!((SPI1->SR)&(1<<1))) {};  // wait for TXE bit to set -> This will indicate that the buffer is empty
-	while (((SPI1->SR)&(1<<7))) {};  // wait for BSY bit to Reset -> This will indicate that SPI is not busy in communication
+	//while (!((SPI1->SR)&(1<<1))) {};  // wait for TXE bit to set -> This will indicate that the buffer is empty
+	//while (((SPI1->SR)&(1<<7))) {};  // wait for BSY bit to Reset -> This will indicate that SPI is not busy in communication
 
 	//  Clear the Overrun flag by reading DR and SR
 	uint8_t temp = SPI1->DR;
@@ -685,6 +769,49 @@ data.
 void SPI_Enable (void)
 {
 	SPI1->CR1 |= (1<<6);   // SPE=1, Peripheral enabled
+}
+
+void Change_Wave(void)
+{
+	if (Wave == SINE)
+	{
+		for (uint16_t jk=0; jk< 1024; jk++)
+		{
+			lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+		}
+		Current_state = STATE_SINE_WAVE;
+
+	}
+	if (Wave == SAWTOOTH)
+	{
+		for (uint16_t jk=0; jk< 1024; jk++)
+		{
+			lut[jk]= (jk* 4)*(Amplitude/5.25);
+		}
+		Current_state = STATE_SAWTOOTH_WAVE;
+	}
+	if (Wave == SQUARE)
+	{
+		for (uint16_t jk=0; jk< 512; jk++)
+		{
+			lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*1);
+		}
+
+		for (uint16_t jk=512; jk< 1024; jk++)
+		{
+			lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*(-1));
+		}
+		Current_state = STATE_SQUARE_WAVE;
+
+	}
+	if (Wave == DC)
+	{
+		for (uint16_t jk=0; jk< 1024; jk++)
+		{
+			lut[jk]= -(2048*(((float)Amplitude-5.0)/5.0));
+		}
+		Current_state = STATE_DC;
+	}
 }
 /* USER CODE END 4 */
 
