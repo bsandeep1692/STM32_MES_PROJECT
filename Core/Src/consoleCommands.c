@@ -13,11 +13,16 @@
 #include "consoleIo.h"
 #include "version.h"
 #include "main.h"
+#include "stm32f7xx_hal.h"
+#include "string.h"
+
 
 #define IGNORE_UNUSED_VARIABLE(x)     if ( &x == &x ) {}
 #define WAVE_MAX_STR_LENGTH 12 //
 #define PI 3.14159
 
+extern ADC_HandleTypeDef hadc1;
+extern UART_HandleTypeDef huart3;
 extern Waveform_T Wave;
 extern int16_t Amplitude;
 extern int16_t Frequency;
@@ -25,26 +30,26 @@ extern uint32_t Delta_Phase;
 extern int16_t Amplitude;
 extern uint32_t lut[1024];
 extern Events_T event;
+char adc_msg[20];
+char wave_str[WAVE_MAX_STR_LENGTH] = "sine";
 
 static eCommandResult_T ConsoleCommandComment(const char buffer[]);
 static eCommandResult_T ConsoleCommandVer(const char buffer[]);
 static eCommandResult_T ConsoleCommandHelp(const char buffer[]);
-static eCommandResult_T ConsoleCommandParamExampleInt16(const char buffer[]);
 static eCommandResult_T ConsoleCommandSetWave(const char buffer[]);
 static eCommandResult_T ConsoleCommandSetFrequency(const char buffer[]);
 static eCommandResult_T ConsoleCommandSetAmplitude(const char buffer[]);
-static eCommandResult_T ConsoleCommandParamExampleHexUint16(const char buffer[]);
+static eCommandResult_T ConsoleCommandGetAdcValue(const char buffer[]);
 
 static const sConsoleCommandTable_T mConsoleCommandTable[] =
 {
     {";", &ConsoleCommandComment, HELP("Comment! You do need a space after the semicolon. ")},
     {"help", &ConsoleCommandHelp, HELP("Lists the commands available")},
     {"ver", &ConsoleCommandVer, HELP("Get the version string")},
-    {"int", &ConsoleCommandParamExampleInt16, HELP("How to get a signed int16 from params list: int -321")},
 	{"wave", &ConsoleCommandSetWave, HELP("Sets type of waveform (sine,square,sawtooth)")},
 	{"freq", &ConsoleCommandSetFrequency, HELP("Sets frequency of waveform in Hz")},
 	{"amp", &ConsoleCommandSetAmplitude, HELP("Sets amplitude of waveform in V")},
-    {"u16h", &ConsoleCommandParamExampleHexUint16, HELP("How to get a hex u16 from the params list: u16h aB12")},
+	{"voltage", &ConsoleCommandGetAdcValue, HELP("How to get a hex u16 from the params list: u16h aB12")},
 	CONSOLE_COMMAND_TABLE_END // must be LAST
 };
 
@@ -76,27 +81,9 @@ static eCommandResult_T ConsoleCommandHelp(const char buffer[])
 	return result;
 }
 
-static eCommandResult_T ConsoleCommandParamExampleInt16(const char buffer[])
-{
-	int16_t parameterInt;
-	eCommandResult_T result;
-	result = ConsoleReceiveParamInt16(buffer, 1, &parameterInt);
-	if ( COMMAND_SUCCESS == result )
-	{
-		ConsoleIoSendString("Parameter is ");
-		ConsoleSendParamInt16(parameterInt);
-		ConsoleIoSendString(" (0x");
-		ConsoleSendParamHexUint16((uint16_t)parameterInt);
-		ConsoleIoSendString(")");
-		ConsoleIoSendString(STR_ENDLINE);
-	}
-	return result;
-}
-
 static eCommandResult_T ConsoleCommandSetWave(const char buffer[])
 {
 	eCommandResult_T result;
-	char wave_str[WAVE_MAX_STR_LENGTH];
 	result = ConsoleReceiveString(buffer, 1, wave_str);
 	if (strcmp(wave_str,"sine")==0)
 	{
@@ -121,8 +108,12 @@ static eCommandResult_T ConsoleCommandSetWave(const char buffer[])
 	if ( COMMAND_SUCCESS == result )
 	{
 		event = CHANGE_WAVE;
-		ConsoleIoSendString("wave is ");
+		ConsoleIoSendString("wave:");
 		ConsoleIoSendString(wave_str);
+		ConsoleIoSendString(" Amplitude:");
+		ConsoleSendParamInt16(Amplitude);
+		ConsoleIoSendString(" Frequency:");
+		ConsoleSendParamInt16(Frequency);
 		ConsoleIoSendString(STR_ENDLINE);
 	}
 	return result;
@@ -137,8 +128,12 @@ static eCommandResult_T ConsoleCommandSetFrequency(const char buffer[])
 	if ( COMMAND_SUCCESS == result )
 	{
 		event = CHANGE_FREQUENCY;
-		ConsoleIoSendString("Frequency is ");
-		ConsoleSendParamInt16(frequencyInt);
+		ConsoleIoSendString("wave:");
+		ConsoleIoSendString(wave_str);
+		ConsoleIoSendString(" Amplitude:");
+		ConsoleSendParamInt16(Amplitude);
+		ConsoleIoSendString(" Frequency:");
+		ConsoleSendParamInt16(Frequency);
 		ConsoleIoSendString(STR_ENDLINE);
 	}
 	return result;
@@ -154,26 +149,12 @@ static eCommandResult_T ConsoleCommandSetAmplitude(const char buffer[])
 	if ( COMMAND_SUCCESS == result )
 	{
 		event = CHANGE_AMPLITUDE;
-		ConsoleIoSendString("Amplitude is ");
-		ConsoleSendParamInt16(amplitudeInt);
-		ConsoleIoSendString(STR_ENDLINE);
-	}
-	return result;
-}
-static eCommandResult_T ConsoleCommandParamExampleHexUint16(const char buffer[])
-{
-	uint16_t parameterUint16;
-	eCommandResult_T result;
-	result = ConsoleReceiveParamHexUint16(buffer, 1, &parameterUint16);
-	if ( COMMAND_SUCCESS == result )
-	{
-		ConsoleIoSendString("Parameter is 0x");
-		ConsoleSendParamHexUint16(parameterUint16);
-
-		ConsoleIoSendString(" (");
-		ConsoleSendParamInt16((int16_t)parameterUint16);
-		ConsoleIoSendString(")");
-
+		ConsoleIoSendString("wave:");
+		ConsoleIoSendString(wave_str);
+		ConsoleIoSendString(" Amplitude:");
+		ConsoleSendParamInt16(Amplitude);
+		ConsoleIoSendString(" Frequency:");
+		ConsoleSendParamInt16(Frequency);
 		ConsoleIoSendString(STR_ENDLINE);
 	}
 	return result;
@@ -186,6 +167,25 @@ static eCommandResult_T ConsoleCommandVer(const char buffer[])
 	ConsoleIoSendString(VERSION_STRING);
 	ConsoleIoSendString(STR_ENDLINE);
 	return result;
+}
+
+static eCommandResult_T ConsoleCommandGetAdcValue(const char buffer[])
+{
+	eCommandResult_T result = COMMAND_SUCCESS;
+	uint16_t raw =0;
+	float voltage = 0;
+	// Start ADC Conversion
+	HAL_ADC_Start(&hadc1);
+	// Poll ADC1 Perihperal & TimeOut = 1mSec
+	HAL_ADC_PollForConversion(&hadc1, 100);
+	// Read The ADC Conversion Result & Map It To PWM DutyCycle
+	raw = HAL_ADC_GetValue(&hadc1);
+	voltage = (float)raw * 3.3/4095.0;
+	ConsoleIoSendString("ADC Voltage is ");
+	ConsoleSendParamInt16((int16_t)round(voltage));
+	ConsoleIoSendString(STR_ENDLINE);
+	return result;
+
 }
 
 const sConsoleCommandTable_T* ConsoleCommandsGetTable(void)

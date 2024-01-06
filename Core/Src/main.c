@@ -42,6 +42,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
 
 DAC_HandleTypeDef hdac;
 
@@ -95,10 +96,12 @@ static void MX_DAC_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM9_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 void SPI_Transmit (uint16_t *data, int size);
 void SPI_Enable (void);
 void Change_Wave(void);
+void State_Machine(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -141,6 +144,7 @@ int main(void)
   MX_TIM11_Init();
   MX_SPI1_Init();
   MX_TIM9_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   Delta_Phase = pow(2, 32) * ((uint32_t)1000) / 100000;
@@ -153,18 +157,15 @@ int main(void)
   SPI_Enable();
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
   HAL_TIM_Base_Start_IT(&htim13);
-  HAL_TIM_Base_Start_IT(&htim11);
+  //HAL_TIM_Base_Start_IT(&htim11);
   HAL_TIM_Base_Start_IT(&htim9);
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
 
-  HAL_UART_Transmit(&huart3, "Main function\n\r" , strlen("Main function\n\r"),1000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   ConsoleInit();
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-
   while (1)
   {
 	  ConsoleProcess();
@@ -173,99 +174,7 @@ int main(void)
 	  //Output state variable - delta phase, LUT, and amplitude(inturn update LUT)
 	  if (event != NO_EVENT)
 	  {
-		  switch(Current_state){
-		  case STATE_INIT:
-			  if (event == CHANGE_WAVE)
-			  {
-				  Change_Wave();
-			  }
-			  else if (event == CHANGE_FREQUENCY)
-			  {
-
-				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
-			  }
-			  else if (event == CHANGE_AMPLITUDE)
-			  {
-				  for (uint16_t jk=0; jk< 1024; jk++)
-				  {
-					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
-				  }
-			  }
-			  break;
-
-
-		  case STATE_SINE_WAVE:
-			  if (event == CHANGE_WAVE)
-			  {
-				  Change_Wave();
-			  }
-			  else if (event == CHANGE_FREQUENCY)
-			  {
-				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
-			  }
-			  else if (event == CHANGE_AMPLITUDE)
-			  {
-				  for (uint16_t jk=0; jk< 1024; jk++)
-				  {
-					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
-				  }
-			  }
-			  break;
-
-		  case STATE_SAWTOOTH_WAVE:
-			  if (event == CHANGE_WAVE)
-			  {
-				  Change_Wave();
-			  }
-			  else if (event == CHANGE_FREQUENCY)
-			  {
-				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
-			  }
-			  else if (event == CHANGE_AMPLITUDE)
-			  {
-				  for (uint16_t jk=0; jk< 1024; jk++)
-				  {
-					  lut[jk]= (jk* 4)*(Amplitude/5.25);
-				  }
-			  }
-			  break;
-		  case STATE_SQUARE_WAVE:
-			  if (event == CHANGE_WAVE)
-			  {
-				  Change_Wave();
-			  }
-			  else if (event == CHANGE_FREQUENCY)
-			  {
-				  Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
-			  }
-			  else if (event == CHANGE_AMPLITUDE)
-			  {
-				  for (uint16_t jk=0; jk< 512; jk++)
-				  {
-					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*1);
-				  }
-
-				  for (uint16_t jk=512; jk< 1024; jk++)
-				  {
-					  lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*(-1));
-				  }
-			  }
-			  break;
-		  case STATE_DC:
-			  if (event == CHANGE_WAVE)
-			  {
-				  Change_Wave();
-			  }
-			  else if (event == CHANGE_AMPLITUDE)
-			  {
-				  for (uint16_t jk=0; jk< 1024; jk++)
-				  {
-					  lut[jk]= -(2048*(((float)Amplitude-5.0)/5.0));
-				  }
-			  }
-			  break;
-		  }
-		  event = NO_EVENT;
+		  State_Machine();
 	  }
 
 	  if(BlinkSpeed == 0)
@@ -285,7 +194,6 @@ int main(void)
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 0);
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 0);
 	  }
-	  //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
 	  HAL_Delay(50);
     /* USER CODE END WHILE */
 
@@ -348,6 +256,58 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -668,7 +628,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		{
 			if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 1)
 			{
-				HAL_UART_Transmit(&huart3, "Button Pressed\n\r" , strlen("Button Pressed\n\r"),1000);
+				HAL_UART_Transmit(&huart3, (uint8_t*)"Button Pressed\n\r" , strlen("Button Pressed\n\r"),1000);
 				if(BlinkSpeed == 2)
 				{
 					BlinkSpeed = 0;
@@ -696,9 +656,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				}
 			}
 		}
-
-
-
 	}
 
 
@@ -710,24 +667,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	if (htim == &htim9 ) /* Timer9 interupt that fires every 10 us(1000KHz) */
 	{
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
-		//SPI_Enable();
-		//spi_data = 0x3000|Value_DAC_SPI;
 		phase = phase + Delta_Phase;
 		Value_DAC_SPI = phase>>22;
 		spi_data = 0x3000|lut[Value_DAC_SPI];
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
 		SPI_Transmit((uint16_t*)&spi_data, 1);
-		//HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-
-		/*if (Value_DAC_SPI<255)
-		{
-			Value_DAC_SPI = Value_DAC_SPI + 5;
-		}
-		else{
-			Value_DAC_SPI = 0;
-			//HAL_UART_Transmit(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"),HAL_MAX_DELAY);
-		}*/
 	}
 
 
@@ -762,7 +706,8 @@ data.
 
 	//  Clear the Overrun flag by reading DR and SR
 	uint8_t temp = SPI1->DR;
-					temp = SPI1->SR;
+	temp = SPI1->SR;
+	temp++;
 
 }
 
@@ -812,6 +757,105 @@ void Change_Wave(void)
 		}
 		Current_state = STATE_DC;
 	}
+}
+
+void State_Machine(void)
+{
+
+	switch(Current_state){
+	case STATE_INIT:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+			}
+		}
+		break;
+
+
+	case STATE_SINE_WAVE:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+			}
+		}
+		break;
+
+	case STATE_SAWTOOTH_WAVE:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= (jk* 4)*(Amplitude/5.25);
+			}
+		}
+		break;
+	case STATE_SQUARE_WAVE:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 512; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*1);
+			}
+
+			for (uint16_t jk=512; jk< 1024; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*(-1));
+			}
+		}
+		break;
+	case STATE_DC:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= -(2048*(((float)Amplitude-5.0)/5.0));
+			}
+		}
+		break;
+	}
+	event = NO_EVENT;
+
 }
 /* USER CODE END 4 */
 
