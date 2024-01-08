@@ -24,14 +24,14 @@
 extern ADC_HandleTypeDef hadc1;
 extern UART_HandleTypeDef huart3;
 extern Waveform_T Wave;
-extern int16_t Amplitude;
 extern int16_t Frequency;
 extern uint32_t Delta_Phase;
-extern int16_t Amplitude;
+extern float Amplitude;
 extern uint32_t lut[1024];
 extern Events_T event;
 char adc_msg[20];
 char wave_str[WAVE_MAX_STR_LENGTH] = "sine";
+int16_t amplitudeInt = 4000;
 
 static eCommandResult_T ConsoleCommandComment(const char buffer[]);
 static eCommandResult_T ConsoleCommandVer(const char buffer[]);
@@ -48,8 +48,8 @@ static const sConsoleCommandTable_T mConsoleCommandTable[] =
     {"ver", &ConsoleCommandVer, HELP("Get the version string")},
 	{"wave", &ConsoleCommandSetWave, HELP("Sets type of waveform (sine,square,sawtooth)")},
 	{"freq", &ConsoleCommandSetFrequency, HELP("Sets frequency of waveform in Hz")},
-	{"amp", &ConsoleCommandSetAmplitude, HELP("Sets amplitude of waveform in V")},
-	{"voltage", &ConsoleCommandGetAdcValue, HELP("How to get a hex u16 from the params list: u16h aB12")},
+	{"amp", &ConsoleCommandSetAmplitude, HELP("Sets amplitude of waveform in mV")},
+	{"voltage", &ConsoleCommandGetAdcValue, HELP("Displays ADC voltage in V")},
 	CONSOLE_COMMAND_TABLE_END // must be LAST
 };
 
@@ -108,12 +108,14 @@ static eCommandResult_T ConsoleCommandSetWave(const char buffer[])
 	if ( COMMAND_SUCCESS == result )
 	{
 		event = CHANGE_WAVE;
-		ConsoleIoSendString("wave:");
+		ConsoleIoSendString("wave: ");
 		ConsoleIoSendString(wave_str);
-		ConsoleIoSendString(" Amplitude:");
-		ConsoleSendParamInt16(Amplitude);
-		ConsoleIoSendString(" Frequency:");
+		ConsoleIoSendString(" ,Amplitude: ");
+		ConsoleSendParamInt16(amplitudeInt);
+		ConsoleIoSendString("mV");
+		ConsoleIoSendString(" ,Frequency: ");
 		ConsoleSendParamInt16(Frequency);
+		ConsoleIoSendString("Hz");
 		ConsoleIoSendString(STR_ENDLINE);
 	}
 	return result;
@@ -128,12 +130,14 @@ static eCommandResult_T ConsoleCommandSetFrequency(const char buffer[])
 	if ( COMMAND_SUCCESS == result )
 	{
 		event = CHANGE_FREQUENCY;
-		ConsoleIoSendString("wave:");
+		ConsoleIoSendString("wave: ");
 		ConsoleIoSendString(wave_str);
-		ConsoleIoSendString(" Amplitude:");
-		ConsoleSendParamInt16(Amplitude);
-		ConsoleIoSendString(" Frequency:");
+		ConsoleIoSendString(" ,Amplitude: ");
+		ConsoleSendParamInt16(amplitudeInt);
+		ConsoleIoSendString("mV");
+		ConsoleIoSendString(" ,Frequency: ");
 		ConsoleSendParamInt16(Frequency);
+		ConsoleIoSendString("Hz");
 		ConsoleIoSendString(STR_ENDLINE);
 	}
 	return result;
@@ -141,20 +145,21 @@ static eCommandResult_T ConsoleCommandSetFrequency(const char buffer[])
 
 static eCommandResult_T ConsoleCommandSetAmplitude(const char buffer[])
 {
-	int16_t amplitudeInt;
 	eCommandResult_T result;
 	result = ConsoleReceiveParamInt16(buffer, 1, &amplitudeInt);
-	Amplitude = amplitudeInt;
+	Amplitude = (float)amplitudeInt/1000.0;
 
 	if ( COMMAND_SUCCESS == result )
 	{
 		event = CHANGE_AMPLITUDE;
-		ConsoleIoSendString("wave:");
+		ConsoleIoSendString("wave: ");
 		ConsoleIoSendString(wave_str);
-		ConsoleIoSendString(" Amplitude:");
-		ConsoleSendParamInt16(Amplitude);
-		ConsoleIoSendString(" Frequency:");
+		ConsoleIoSendString(" ,Amplitude: ");
+		ConsoleSendParamInt16(amplitudeInt);
+		ConsoleIoSendString("mV");
+		ConsoleIoSendString(" ,Frequency: ");
 		ConsoleSendParamInt16(Frequency);
+		ConsoleIoSendString("Hz");
 		ConsoleIoSendString(STR_ENDLINE);
 	}
 	return result;
@@ -182,7 +187,8 @@ static eCommandResult_T ConsoleCommandGetAdcValue(const char buffer[])
 	raw = HAL_ADC_GetValue(&hadc1);
 	voltage = (float)raw * 3.3/4095.0;
 	ConsoleIoSendString("ADC Voltage is ");
-	ConsoleSendParamInt16((int16_t)round(voltage));
+	ConsoleSendParamInt16((int16_t)round(voltage*1000));
+	ConsoleIoSendString("mV");
 	ConsoleIoSendString(STR_ENDLINE);
 	return result;
 

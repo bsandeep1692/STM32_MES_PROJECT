@@ -58,6 +58,7 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
 uint8_t BlinkSpeed = 0;
+uint8_t Dispaly_ADC =0;
 uint8_t msg[20];
 uint8_t debounceRequest =0;
 uint8_t debounceCount = 0;
@@ -72,7 +73,7 @@ Waveform_T Wave = 0;
 Sates_T Current_state=0;
 uint8_t Input_Updated = 0;
 int16_t Frequency = 1000;
-int16_t Amplitude = 4;
+float Amplitude = 4;
 Events_T event= 0;
 uint32_t Delta_Phase =1;
 uint32_t fs= 100000; //Sampling frequency
@@ -175,6 +176,24 @@ int main(void)
 	  if (event != NO_EVENT)
 	  {
 		  State_Machine();
+	  }
+	  if(Dispaly_ADC == 1)
+	  {
+		    Dispaly_ADC = 0;
+			uint16_t raw =0;
+			float voltage = 0;
+			// Start ADC Conversion
+			HAL_ADC_Start(&hadc1);
+			// Poll ADC1 Perihperal & TimeOut = 1mSec
+			HAL_ADC_PollForConversion(&hadc1, 100);
+			// Read The ADC Conversion Result & Map It To PWM DutyCycle
+			raw = HAL_ADC_GetValue(&hadc1);
+			voltage = (float)raw * 3.3/4095.0;
+			ConsoleIoSendString("ADC Voltage is ");
+			ConsoleSendParamInt16((int16_t)round(voltage*1000));
+			ConsoleIoSendString("mV");
+			ConsoleIoSendString(STR_ENDLINE);
+
 	  }
 
 	  if(BlinkSpeed == 0)
@@ -628,7 +647,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		{
 			if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 1)
 			{
-				HAL_UART_Transmit(&huart3, (uint8_t*)"Button Pressed\n\r" , strlen("Button Pressed\n\r"),1000);
+				//HAL_UART_Transmit(&huart3, (uint8_t*)"Button Pressed\n\r" , strlen("Button Pressed\n\r"),1000);
+				Dispaly_ADC = 1;
 				if(BlinkSpeed == 2)
 				{
 					BlinkSpeed = 0;
