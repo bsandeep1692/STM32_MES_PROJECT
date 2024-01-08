@@ -13,6 +13,7 @@
 #define MIN(X, Y)		(((X) < (Y)) ? (X) : (Y))
 #define NOT_FOUND		-1
 #define INT16_MAX_STR_LENGTH 8 // -65534: six characters plus a two NULLs
+#define STRING_MAX_STR_LENGTH 20
 #define INT32_MAX_STR_LENGTH 16
 #define NULL_CHAR            '\0'
 #define CR_CHAR              '\r'
@@ -248,6 +249,48 @@ eCommandResult_T ConsoleReceiveParamInt16(const char * buffer, const uint8_t par
 	{
 		str[i] = NULL_CHAR;
 		*parameterInt = atoi(str);
+	}
+	return result;
+}
+
+// ConsoleReceiveString
+// Identify and obtain a parameter of type int16_t, sent in in decimal, possibly with a negative sign.
+// Note that this uses atoi, a somewhat costly function. You may want to replace it, see ConsoleReceiveParamHexUint16
+// for some ideas on how to do that.
+eCommandResult_T ConsoleReceiveString(const char * buffer, const uint8_t parameterNumber, char* parameterString)
+{
+	uint32_t startIndex = 0;
+	uint32_t i;
+	uint32_t j=0;
+	eCommandResult_T result;
+	char charVal;
+	char str[STRING_MAX_STR_LENGTH];
+
+	result = ConsoleParamFindN(buffer, parameterNumber, &startIndex);
+
+	i = 0;
+	charVal = buffer[startIndex + i];
+	while ( ( LF_CHAR != charVal ) && ( CR_CHAR != charVal )
+			&& ( PARAMETER_SEPARATER != charVal )
+		&& ( i < STRING_MAX_STR_LENGTH ) )
+	{
+		str[i] = charVal;					// copy the relevant part
+		i++;
+		charVal = buffer[startIndex + i];
+	}
+	if ( i == STRING_MAX_STR_LENGTH)
+	{
+		result = COMMAND_PARAMETER_ERROR;
+	}
+	if ( COMMAND_SUCCESS == result )
+	{
+		str[i] = NULL_CHAR;
+		while(str[j] != NULL_CHAR)
+		{
+			parameterString[j] = str[j];
+			j++;
+		}
+		parameterString[j] = NULL_CHAR;
 	}
 	return result;
 }

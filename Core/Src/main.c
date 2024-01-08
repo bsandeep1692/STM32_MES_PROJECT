@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "console.h"  //for the cmd line interface
+#include <math.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,15 +38,17 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define PI 3.14159
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
 
 DAC_HandleTypeDef hdac;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim9;
 TIM_HandleTypeDef htim11;
 TIM_HandleTypeDef htim13;
 
@@ -54,14 +58,33 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
 uint8_t BlinkSpeed = 0;
+uint8_t Dispaly_ADC =0;
 uint8_t msg[20];
 uint8_t debounceRequest =0;
 uint8_t debounceCount = 0;
 uint8_t rx_buffer[10];
 uint16_t Value_DAC =0;
-uint16_t Value_DAC_SPI =1024;
+uint16_t Value_DAC_SPI =0;
+uint32_t phase = 0;
 uint16_t spi_data;
+uint32_t lut[1024];
 uint32_t Value_ARR =1999;
+Waveform_T Wave = 0;
+Sates_T Current_state=0;
+uint8_t Input_Updated = 0;
+int16_t Frequency = 1000;
+float Amplitude = 4;
+Events_T event= 0;
+uint32_t Delta_Phase =1;
+uint32_t fs= 100000; //Sampling frequency
+
+uint16_t lut1[256]={2048,2098,2149,2199,2249,2300,2350,2399,2449,2498,2547,2596,2644,2693,2740,2787,2834,2881,2926,2972,3016,3061,3104,3147,3189,3231,3272,3312,3351,3389,3427,3464,3500,3535,3569,
+		3603,3635,3666,3697,3726,3754,3782,3808,3833,3857,3880,3902,3923,3943,3961,3979,3995,4010,4024,4036,4048,4058,4067,4074,4081,4086,4090,4093,4095,4095,4094,4092,4088,4084,4078,4071,4062,4053,
+		4042,4030,4017,4002,3987,3970,3952,3933,3913,3892,3869,3845,3821,3795,3768,3740,3711,3682,3651,3619,3586,3552,3518,3482,3446,3408,3370,3331,3292,3251,3210,3168,3126,3082,3039,2994,2949,2904,
+		2857,2811,2764,2716,2669,2620,2572,2523,2474,2424,2374,2325,2275,2224,2174,2124,2073,2023,1972,1922,1872,1821,1771,1722,1672,1622,1573,1524,1476,1427,1380,1332,1285,1239,1192,1147,1102,1057,
+		1014,970,928,886,845,804,765,726,688,650,614,578,544,510,477,445,414,385,356,328,301,275,251,227,204,183,163,144,126,109,94,79,66,54,43,34,25,18,12,8,4,2,1,1,3,6,10,15,22,29,38,48,60,72,86,
+		101,117,135,153,173,194,216,239,263,288,314,342,370,399,430,461,493,527,561,596,632,669,707,745,784,824,865,907,949,992,1035,1080,1124,1170,1215,1262,1309,1356,1403,1452,1500,1549,1598,1647,1697,1746,1796,1847,1897,1947,1998,2048,};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,8 +96,13 @@ static void MX_TIM13_Init(void);
 static void MX_DAC_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM9_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
-
+void SPI_Transmit (uint16_t *data, int size);
+void SPI_Enable (void);
+void Change_Wave(void);
+void State_Machine(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -116,13 +144,24 @@ int main(void)
   MX_DAC_Init();
   MX_TIM11_Init();
   MX_SPI1_Init();
+  MX_TIM9_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
+
+  Delta_Phase = pow(2, 32) * ((uint32_t)1000) / 100000;
+  for (uint16_t jk=0; jk< 1024; jk++)
+  {
+     lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+  }
+
   // Start timer
+  SPI_Enable();
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
   HAL_TIM_Base_Start_IT(&htim13);
-  HAL_TIM_Base_Start_IT(&htim11);
+  //HAL_TIM_Base_Start_IT(&htim11);
+  HAL_TIM_Base_Start_IT(&htim9);
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
 
-  HAL_UART_Transmit(&huart3, "Main function\n\r" , strlen("Main function\n\r"),1000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -131,6 +170,32 @@ int main(void)
   while (1)
   {
 	  ConsoleProcess();
+
+      // Input state variables - Mode,frequency,amplitude
+	  //Output state variable - delta phase, LUT, and amplitude(inturn update LUT)
+	  if (event != NO_EVENT)
+	  {
+		  State_Machine();
+	  }
+	  if(Dispaly_ADC == 1)
+	  {
+		    Dispaly_ADC = 0;
+			uint16_t raw =0;
+			float voltage = 0;
+			// Start ADC Conversion
+			HAL_ADC_Start(&hadc1);
+			// Poll ADC1 Perihperal & TimeOut = 1mSec
+			HAL_ADC_PollForConversion(&hadc1, 100);
+			// Read The ADC Conversion Result & Map It To PWM DutyCycle
+			raw = HAL_ADC_GetValue(&hadc1);
+			voltage = (float)raw * 3.3/4095.0;
+			ConsoleIoSendString("ADC Voltage is ");
+			ConsoleSendParamInt16((int16_t)round(voltage*1000));
+			ConsoleIoSendString("mV");
+			ConsoleIoSendString(STR_ENDLINE);
+
+	  }
+
 	  if(BlinkSpeed == 0)
 	  {
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 1);
@@ -148,9 +213,7 @@ int main(void)
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, 0);
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, 0);
 	  }
-	  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14); //red
 	  HAL_Delay(50);
-	  //HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, Value_DAC);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -212,6 +275,58 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -295,6 +410,44 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM9 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM9_Init(void)
+{
+
+  /* USER CODE BEGIN TIM9_Init 0 */
+
+  /* USER CODE END TIM9_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+
+  /* USER CODE BEGIN TIM9_Init 1 */
+
+  /* USER CODE END TIM9_Init 1 */
+  htim9.Instance = TIM9;
+  htim9.Init.Prescaler = 1-1;
+  htim9.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim9.Init.Period = 2160-1;
+  htim9.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim9.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim9) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim9, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM9_Init 2 */
+
+  /* USER CODE END TIM9_Init 2 */
+
+}
+
+/**
   * @brief TIM11 Initialization Function
   * @param None
   * @retval None
@@ -343,7 +496,7 @@ static void MX_TIM13_Init(void)
   htim13.Instance = TIM13;
   htim13.Init.Prescaler = 108-1;
   htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim13.Init.Period = 10000-1;
+  htim13.Init.Period = 5000-1;
   htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
@@ -483,8 +636,8 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* Timer13 interupt that fires every 5 ms to check push button press and handle debouncing*/
-/* Timer11 interupt that fires every 1 ms */
+/* Timer13(APB1 -108Mhz) interupt that fires every 5 ms to check push button press and handle debouncing*/
+/* Timer11(APB2 - 216Mhz) interupt that fires every 1 ms */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 
@@ -494,7 +647,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		{
 			if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 1)
 			{
-				HAL_UART_Transmit(&huart3, "Button Pressed\n\r" , strlen("Button Pressed\n\r"),1000);
+				//HAL_UART_Transmit(&huart3, (uint8_t*)"Button Pressed\n\r" , strlen("Button Pressed\n\r"),1000);
+				Dispaly_ADC = 1;
 				if(BlinkSpeed == 2)
 				{
 					BlinkSpeed = 0;
@@ -522,29 +676,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				}
 			}
 		}
-
-
-		spi_data = 0x3000|Value_DAC_SPI;
-		//spi_data = 0x3000|0;
-		HAL_StatusTypeDef errorcode;
-		//spi_data[0]= 0x0F;
-		//spi_data[1]= 0x30;
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-		errorcode = HAL_SPI_Transmit(&hspi1, (uint8_t*)&spi_data, 2, 100000);
-		if (errorcode!= HAL_OK)
-		{
-			HAL_UART_Transmit(&huart3, "error\n\r" , strlen("error\n\r"),1000);
-		}
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-
-		if (Value_DAC_SPI<4095)
-		{
-			Value_DAC_SPI++;
-		}
-		else{
-			Value_DAC_SPI = 0;
-			HAL_UART_Transmit(&huart3, "DAC Pressed\n\r" , strlen("DAC Pressed\n\r"),HAL_MAX_DELAY);
-		}
 	}
 
 
@@ -553,6 +684,197 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	}
 
+	if (htim == &htim9 ) /* Timer9 interupt that fires every 10 us(1000KHz) */
+	{
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+		phase = phase + Delta_Phase;
+		Value_DAC_SPI = phase>>22;
+		spi_data = 0x3000|lut[Value_DAC_SPI];
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+		SPI_Transmit((uint16_t*)&spi_data, 1);
+	}
+
+
+}
+
+void SPI_Transmit (uint16_t *data, int size)
+{
+
+	/************** STEPS TO FOLLOW *****************
+	1. Wait for the TXE bit to set in the Status Register
+	2. Write the data to the Data Register
+	3. After the data has been transmitted, wait for the BSY bit to reset in Status Register
+	4. Clear the Overrun flag by reading DR and SR
+	************************************************/
+
+	int i=0;
+	while (i<size)
+	{
+	   while (!((SPI1->SR)&(1<<1))) {};  // wait for TXE bit to set -> This will indicate that the buffer is empty
+	   SPI1->DR = data[i];  // load the data into the Data Register
+	   i++;
+	}
+
+
+/*During discontinuous communications, there is a 2 APB clock period delay between the
+write operation to the SPI_DR register and BSY bit setting. As a consequence it is
+mandatory to wait first until TXE is set and then until BSY is cleared after writing the last
+data.
+*/
+	//while (!((SPI1->SR)&(1<<1))) {};  // wait for TXE bit to set -> This will indicate that the buffer is empty
+	//while (((SPI1->SR)&(1<<7))) {};  // wait for BSY bit to Reset -> This will indicate that SPI is not busy in communication
+
+	//  Clear the Overrun flag by reading DR and SR
+	uint8_t temp = SPI1->DR;
+	temp = SPI1->SR;
+	temp++;
+
+}
+
+void SPI_Enable (void)
+{
+	SPI1->CR1 |= (1<<6);   // SPE=1, Peripheral enabled
+}
+
+void Change_Wave(void)
+{
+	if (Wave == SINE)
+	{
+		for (uint16_t jk=0; jk< 1024; jk++)
+		{
+			lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+		}
+		Current_state = STATE_SINE_WAVE;
+
+	}
+	if (Wave == SAWTOOTH)
+	{
+		for (uint16_t jk=0; jk< 1024; jk++)
+		{
+			lut[jk]= (jk* 4)*(Amplitude/5.25);
+		}
+		Current_state = STATE_SAWTOOTH_WAVE;
+	}
+	if (Wave == SQUARE)
+	{
+		for (uint16_t jk=0; jk< 512; jk++)
+		{
+			lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*1);
+		}
+
+		for (uint16_t jk=512; jk< 1024; jk++)
+		{
+			lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*(-1));
+		}
+		Current_state = STATE_SQUARE_WAVE;
+
+	}
+	if (Wave == DC)
+	{
+		for (uint16_t jk=0; jk< 1024; jk++)
+		{
+			lut[jk]= -(2048*(((float)Amplitude-5.0)/5.0));
+		}
+		Current_state = STATE_DC;
+	}
+}
+
+void State_Machine(void)
+{
+
+	switch(Current_state){
+	case STATE_INIT:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+			}
+		}
+		break;
+
+
+	case STATE_SINE_WAVE:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*sin(2*PI*jk/1024));
+			}
+		}
+		break;
+
+	case STATE_SAWTOOTH_WAVE:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= (jk* 4)*(Amplitude/5.25);
+			}
+		}
+		break;
+	case STATE_SQUARE_WAVE:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_FREQUENCY)
+		{
+			Delta_Phase = pow(2, 32) * ((uint32_t)Frequency) / fs;
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 512; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*1);
+			}
+
+			for (uint16_t jk=512; jk< 1024; jk++)
+			{
+				lut[jk]= (2048.0+(2047.0-150.0)*((float)Amplitude/5.0)*(-1));
+			}
+		}
+		break;
+	case STATE_DC:
+		if (event == CHANGE_WAVE)
+		{
+			Change_Wave();
+		}
+		else if (event == CHANGE_AMPLITUDE)
+		{
+			for (uint16_t jk=0; jk< 1024; jk++)
+			{
+				lut[jk]= -(2048*(((float)Amplitude-5.0)/5.0));
+			}
+		}
+		break;
+	}
+	event = NO_EVENT;
 
 }
 /* USER CODE END 4 */
