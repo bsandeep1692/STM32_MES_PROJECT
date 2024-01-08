@@ -46,7 +46,27 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
+typedef enum Waveform {
+	SINE = 0,
+	SQUARE = 1,
+	SAWTOOTH = 2,
+	DC = 3
+} Waveform_T;
 
+typedef enum States {
+	STATE_INIT = 0,
+	STATE_SINE_WAVE = 1,
+	STATE_SAWTOOTH_WAVE = 2,
+	STATE_SQUARE_WAVE = 3,
+	STATE_DC = 4
+} Sates_T;
+
+typedef enum Events {
+	NO_EVENT = 0,
+	CHANGE_WAVE = 1,
+	CHANGE_FREQUENCY = 2,
+	CHANGE_AMPLITUDE = 3,
+} Events_T;
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -89,6 +109,8 @@ void Error_Handler(void);
 #define TCK_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define SPI_CS_Pin GPIO_PIN_6
+#define SPI_CS_GPIO_Port GPIOB
 #define LD2_Pin GPIO_PIN_7
 #define LD2_GPIO_Port GPIOB
 
